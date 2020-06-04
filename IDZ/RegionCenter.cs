@@ -8,10 +8,12 @@ namespace IDZ
 
         public RegionCenter(IEnumerable<int> distances)
         {
+            var counter = 1;
             Cities = new List<City>();
             foreach (var distance in distances)
             {
-                Cities.Add(new City(distance));
+                Cities.Add(new City(distance, counter));
+                counter++;
             }
         }
     }
