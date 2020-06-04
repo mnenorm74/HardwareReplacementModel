@@ -6,7 +6,8 @@ namespace IDZ
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            var solver = new HardwareReplacementSolver();
+            solver.ShowMenu();
         }
     }
 }
