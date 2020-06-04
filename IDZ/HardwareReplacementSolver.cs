@@ -360,7 +360,6 @@ namespace IDZ
         private void ShowModelSettings()
         {
             Console.WriteLine($"Срок замены блоков (в неделях): {weeksCount}");
-            Console.WriteLine($"Число рабочих бригад: {brigadeCount}");
             Console.WriteLine($"Вместимость автомобиля: {carCapacity}");
             Console.Write("Порядок движения по региональным центрам: ");
             foreach (var centerNumber in drivingSequence)
