@@ -5,12 +5,23 @@ namespace IDZ
 {
     public class HardwareReplacementSolver
     {
+        private readonly int minWorkTime = 480;
+        private readonly int maxWorkTime = 720;
+        private int expenses;
+        private readonly int carSpeed;
+        private readonly int replacementTime;
         private List<RegionCenter> regionCenters = new List<RegionCenter>();
         private int weeksCount;
         private int brigadeCount;
         private int carCapacity;
         private int[] drivingSequence;
 
+        public HardwareReplacementSolver(int carSpeed = 50, int replacementTime = 70)
+        {
+            this.carSpeed = carSpeed;
+            this.replacementTime = replacementTime;
+        }
+        
         public void SetRegionCenters(IEnumerable<IEnumerable<int>> distances)
         {
             foreach (var distance in distances)
