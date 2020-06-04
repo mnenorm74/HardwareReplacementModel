@@ -7,27 +7,110 @@ namespace IDZ
     {
         private readonly int minWorkTime = 480;
         private readonly int maxWorkTime = 720;
+        private double pastDayTime;
+        private List<double> pastMonthTime;
         private int expenses;
+        private Tuple<int, int> position;
+        private Tuple<int, int> storagePosition;
         private readonly int carSpeed;
         private readonly int replacementTime;
-        private List<RegionCenter> regionCenters = new List<RegionCenter>();
+        private List<RegionCenter> regionCenters;
         private int weeksCount;
         private int brigadeCount;
         private int carCapacity;
         private int[] drivingSequence;
+        private int resources;
+        private List<List<int>> regionDistances;
 
         public HardwareReplacementSolver(int carSpeed = 50, int replacementTime = 70)
         {
             this.carSpeed = carSpeed;
             this.replacementTime = replacementTime;
+            position = new Tuple<int, int>(4, 0);
+            storagePosition = new Tuple<int, int>(1, 0);
+            pastMonthTime = new List<double>();
+            regionCenters = new List<RegionCenter>();
+            regionDistances = new List<List<int>>();
+            drivingSequence = new int[4];
         }
-        
-        public void SetRegionCenters(IEnumerable<IEnumerable<int>> distances)
+
+        public void Solve()
+        {
+            foreach (var centerNumber in drivingSequence)
+            {
+                var nextCenter = centerNumber;
+                ServeRegionCenter(nextCenter);
+            }
+        }
+
+        private void ServeRegionCenter(int number)
+        {
+            if (resources < 1)
+            {
+                ReceiveResources();
+            }
+        }
+
+        private void ReceiveResources()
+        {
+            if (position.Equals(storagePosition))
+            {
+                resources = carCapacity;
+            }
+            else
+            {
+                ReplaceCar(position, storagePosition);
+                resources = carCapacity;
+            }
+
+            Console.WriteLine($"Ресурсы обновлены: {resources}");
+            Console.WriteLine($"Рабочее время: {pastDayTime}");
+        }
+
+        private void ReplaceCar(Tuple<int, int> from, Tuple<int, int> to)
+        {
+            var time = 0.0;
+            if (from.Item2 != 0)
+            {
+                var distance = regionCenters[from.Item1 - 1].Cities[from.Item2 - 1].Distance;
+                var timeToRegionCenter = GetReplacementTime(distance, carSpeed);
+                time += timeToRegionCenter;
+                position = new Tuple<int, int>(from.Item1, 0);
+            }
+
+            if (position.Item1 != to.Item1)
+            {
+                var distance = regionDistances[from.Item1 - 1][to.Item1 - 1];
+                var timeToCenter = GetReplacementTime(distance, carSpeed);
+                time += timeToCenter;
+                position = new Tuple<int, int>(to.Item1, 0);
+            }
+
+            if (position.Item2 != to.Item2)
+            {
+                var distance = regionCenters[position.Item1 - 1].Cities[to.Item2 - 1].Distance;
+                var timeToCity = GetReplacementTime(distance, carSpeed);
+                time += timeToCity;
+                position = to;
+            }
+
+            pastDayTime += time;
+        }
+
+        private double GetReplacementTime(int distance, int speed)
+        {
+            return (double) distance / speed * 60;
+        }
+
+        public void SetRegionCenters(IEnumerable<List<int>> distances,
+            List<List<int>> regionDistances)
         {
             foreach (var distance in distances)
             {
                 regionCenters.Add(new RegionCenter(distance));
             }
+
+            this.regionDistances = regionDistances;
         }
 
         public void ShowMenu()
