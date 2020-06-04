@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace IDZ
 {
     public class HardwareReplacementSolver
     {
-        private readonly int minWorkTime = 480;
-        private readonly int maxWorkTime = 720;
+        private const int maxWorkTime = 720;
         private double pastDayTime;
         private List<double> pastMonthTime;
         private int expenses;
@@ -24,6 +24,10 @@ namespace IDZ
         private int resources;
         private List<List<int>> regionDistances;
         private List<Tuple<int, int>> path;
+        private int engineerMoney;
+        private int driverMoney;
+        private int businessTripMoney;
+        private int hotelMoney;
 
         public HardwareReplacementSolver(int carSpeed = 50, int replacementTime = 70)
         {
@@ -47,11 +51,31 @@ namespace IDZ
                 ReplaceCar(position, new Tuple<int, int>(centerNumber, 0));
                 ServeRegionCenter(nextCenter);
             }
+
             Console.WriteLine("Конец");
-            foreach (var position in path)
+            ShowResult();
+        }
+
+        private void ShowResult()
+        {
+            Console.WriteLine($"Маршрут: {GetPath(path)}");
+            Console.WriteLine("Где {номер регионального центра}/{номер города (1=А...6=F)}");
+            Console.WriteLine($"Зарплата инжерера: {engineerMoney}");
+            Console.WriteLine($"Зарплата водителя {driverMoney}");
+            Console.WriteLine($"Расходы на автомобиль: {pastMonthTime.Count * 5000}");
+            Console.WriteLine($"Командировочные на каждого человека: {businessTripMoney}");
+            Console.WriteLine($"Затраты на отель {hotelMoney}");
+        }
+
+        private string GetPath(List<Tuple<int, int>> sequence)
+        {
+            var result = new StringBuilder();
+            foreach (var position in sequence)
             {
-                Console.WriteLine($"{position.Item1}/{position.Item2}");
+                result.Append($"{position.Item1}/{position.Item2} ");
             }
+
+            return result.ToString();
         }
 
         private void ServeRegionCenter(int number)
@@ -73,6 +97,7 @@ namespace IDZ
                     ReplaceCar(position, new Tuple<int, int>(centerNumber, 1));
                     DelayForSleep();
                 }
+
                 ReplaceCar(position, centerPosition);
                 DelayForFixing();
             }
@@ -88,7 +113,7 @@ namespace IDZ
                     var cityPosition = new Tuple<int, int>(position.Item1, city.Position);
                     var distanceToCity = regionCenters[position.Item1 - 1].Cities[city.Position - 1].Distance;
                     var timeToCity = GetReplacementTime(distanceToCity, carSpeed);
-                    if (pastDayTime + timeToCity <= maxWorkTime)
+                    if (pastDayTime + timeToCity + replacementTime <= maxWorkTime)
                     {
                         ReplaceCar(position, cityPosition);
                         DelayForFixing();
@@ -115,7 +140,7 @@ namespace IDZ
             var time = 0.0;
             var currentPosition = new Tuple<int, int>(from.Item1, from.Item2);
             var homePosition = to;
-            
+
             if (currentPosition.Item2 != 0)
             {
                 var distance = regionCenters[currentPosition.Item1 - 1].Cities[currentPosition.Item2 - 1].Distance;
@@ -123,6 +148,7 @@ namespace IDZ
                 time += timeToRegionCenter;
                 currentPosition = new Tuple<int, int>(currentPosition.Item1, 0);
             }
+
             if (currentPosition.Item1 != homePosition.Item1)
             {
                 var distance = regionDistances[currentPosition.Item1 - 1][homePosition.Item1 - 1];
@@ -130,6 +156,7 @@ namespace IDZ
                 time += timeToCenter;
                 currentPosition = new Tuple<int, int>(homePosition.Item1, 0);
             }
+
             if (currentPosition.Item2 != homePosition.Item2)
             {
                 var distance = regionCenters[position.Item1 - 1].Cities[homePosition.Item2 - 1].Distance;
@@ -153,6 +180,8 @@ namespace IDZ
             Console.WriteLine($"Гостиница {position.Item1}/{position.Item2}");
             pastMonthTime.Add(replacementTime);
             pastDayTime = 0;
+            businessTripMoney += 1000;
+            hotelMoney += 800;
         }
 
         private void RefreshResources()
@@ -177,19 +206,24 @@ namespace IDZ
                 {
                     DelayForSleep();
                 }
+
                 ReplaceCar(position, storagePosition);
                 resources = carCapacity;
                 ReplaceCar(position, oldPosition);
             }
 
             Console.WriteLine($"Ресурсы обновлены: {resources}");
-            Console.WriteLine($"{position.Item1}/{position.Item2}");
-            Console.WriteLine($"Рабочее время: {pastDayTime}");
         }
 
         private void ReplaceCar(Tuple<int, int> from, Tuple<int, int> to)
         {
+            if (from.Equals(to))
+            {
+                return;
+            }
+
             var time = 0.0;
+
             if (from.Item2 != 0)
             {
                 var distance = regionCenters[from.Item1 - 1].Cities[from.Item2 - 1].Distance;
@@ -236,7 +270,6 @@ namespace IDZ
         public void ShowMenu()
         {
             weeksCount = GetWeeksCount();
-            brigadeCount = GetBrigadeCount();
             carCapacity = GetCarCapacity();
             drivingSequence = GetDrivingSequence();
             ShowModelSettings();
@@ -257,21 +290,25 @@ namespace IDZ
                 GetWeeksCount();
             }
 
-            return weeksCount * 2;
-        }
-
-        private int GetBrigadeCount()
-        {
-            Console.WriteLine("Введите необходимое число рабочих бригад (минимальное значение: 1)");
-            var brigadeVariant = Console.ReadLine();
-            var isValidVariant = int.TryParse(brigadeVariant, out var brigadeCount);
-            if (!isValidVariant || brigadeCount < 1)
+            if (weeksCount == 1)
             {
-                Console.WriteLine("Некорректный ввод, попробуйте снова");
-                GetBrigadeCount();
+                engineerMoney = 25000;
+                driverMoney = 22500;
             }
 
-            return brigadeCount;
+            if (weeksCount == 2)
+            {
+                engineerMoney = 50000;
+                driverMoney = 45000;
+            }
+
+            if (weeksCount == 3)
+            {
+                engineerMoney = 75000;
+                driverMoney = 67500;
+            }
+
+            return weeksCount * 2;
         }
 
         private int GetCarCapacity()
