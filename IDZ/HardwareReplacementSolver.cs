@@ -5,11 +5,20 @@ namespace IDZ
 {
     public class HardwareReplacementSolver
     {
+        private List<RegionCenter> regionCenters = new List<RegionCenter>();
         private int weeksCount;
         private int brigadeCount;
         private int carCapacity;
         private int[] drivingSequence;
-        
+
+        public void SetRegionCenters(IEnumerable<IEnumerable<int>> distances)
+        {
+            foreach (var distance in distances)
+            {
+                regionCenters.Add(new RegionCenter(distance));
+            }
+        }
+
         public void ShowMenu()
         {
             weeksCount = GetWeeksCount();
@@ -107,6 +116,7 @@ namespace IDZ
             {
                 Console.Write(centerNumber);
             }
+
             Console.WriteLine();
         }
     }
