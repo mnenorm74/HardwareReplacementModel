@@ -9,13 +9,12 @@ namespace IDZ
     {
         private const int maxWorkTime = 720;
         private double pastDayTime;
-        private List<double> pastMonthTime;
-        private int expenses;
+        private readonly List<double> pastMonthTime;
         private Tuple<int, int> position;
         private readonly Tuple<int, int> storagePosition;
         private readonly Tuple<int, int> homePosition;
         private readonly int carSpeed;
-        private int replacementTime;
+        private readonly int replacementTime;
         private readonly List<RegionCenter> regionCenters;
         private int weeksCount;
         private int brigadeCount;
@@ -23,7 +22,7 @@ namespace IDZ
         private int[] drivingSequence;
         private int resources;
         private List<List<int>> regionDistances;
-        private List<Tuple<int, int>> path;
+        private readonly List<Tuple<int, int>> path;
         private int engineerMoney;
         private int driverMoney;
         private int businessTripMoney;
@@ -61,10 +60,11 @@ namespace IDZ
         {
             Console.WriteLine($"Маршрут: {GetPath(path)}");
             Console.WriteLine("Где {номер регионального центра}/{номер города (1=А...6=F)}");
-            Console.WriteLine($"Зарплата инжерера: {engineerMoney}");
-            Console.WriteLine($"Зарплата водителя {driverMoney}");
-            Console.WriteLine($"Расходы на автомобиль: {pastMonthTime.Count * 5000}");
-            Console.WriteLine($"Командировочные на каждого человека: {businessTripMoney}");
+            Console.WriteLine($"Количество бригад: {brigadeCount}");
+            Console.WriteLine($"Зарплата инженеров: {engineerMoney}");
+            Console.WriteLine($"Зарплата водителей: {driverMoney}");
+            Console.WriteLine($"Расходы на автомобили: {pastMonthTime.Count * 5000 * brigadeCount}");
+            Console.WriteLine($"Командировочные: {businessTripMoney}");
             Console.WriteLine($"Затраты на отель {hotelMoney}");
         }
 
@@ -183,8 +183,8 @@ namespace IDZ
             Console.WriteLine($"Гостиница {position.Item1}/{position.Item2}");
             pastMonthTime.Add(replacementTime);
             pastDayTime = 0;
-            businessTripMoney += 1000;
-            hotelMoney += 800;
+            businessTripMoney += 1000 * 2;
+            hotelMoney += 800 * 2;
         }
 
         private void RefreshResources()
@@ -272,6 +272,7 @@ namespace IDZ
 
         public void ShowMenu()
         {
+            brigadeCount = GetBrigadeCount();
             weeksCount = GetWeeksCount();
             carCapacity = GetCarCapacity();
             drivingSequence = GetDrivingSequence();
@@ -295,20 +296,20 @@ namespace IDZ
 
             if (weeksCount == 1)
             {
-                engineerMoney = 25000;
-                driverMoney = 22500;
+                engineerMoney = 25000 * brigadeCount;
+                driverMoney = 22500 * brigadeCount;
             }
 
             if (weeksCount == 2)
             {
-                engineerMoney = 50000;
-                driverMoney = 45000;
+                engineerMoney = 50000 * brigadeCount;
+                driverMoney = 45000 * brigadeCount;
             }
 
             if (weeksCount == 3)
             {
-                engineerMoney = 75000;
-                driverMoney = 67500;
+                engineerMoney = 75000 * brigadeCount;
+                driverMoney = 67500 * brigadeCount;
             }
 
             return weeksCount * 2;
@@ -363,6 +364,7 @@ namespace IDZ
         private void ShowModelSettings()
         {
             Console.WriteLine($"Срок замены блоков (в неделях): {weeksCount}");
+            Console.WriteLine($"Количество бригад: {brigadeCount}");
             Console.WriteLine($"Вместимость автомобиля: {carCapacity}");
             Console.Write("Порядок движения по региональным центрам: ");
             foreach (var centerNumber in drivingSequence)
@@ -371,6 +373,20 @@ namespace IDZ
             }
 
             Console.WriteLine();
+        }
+        
+        private int GetBrigadeCount()
+        {
+            Console.WriteLine("Введите необходимое число рабочих бригад (минимальное значение: 1)");
+            var brigadeVariant = Console.ReadLine();
+            var isValidVariant = int.TryParse(brigadeVariant, out var brigadeCount);
+            if (!isValidVariant || brigadeCount < 1)
+            {
+                Console.WriteLine("Некорректный ввод, попробуйте снова");
+                GetBrigadeCount();
+            }
+
+            return brigadeCount;
         }
     }
 }
