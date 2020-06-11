@@ -27,6 +27,7 @@ namespace IDZ
         private int driverMoney;
         private int[] businessTripMoney;
         private int[] hotelMoney;
+        private int currentBrigadeNumber;
 
         public HardwareReplacementSolver(int carSpeed = 50, int replacementTime = 70)
         {
@@ -41,14 +42,13 @@ namespace IDZ
 
         public void Solve()
         {
-            var brigadeNumber = 0;
             foreach (var centerNumber in drivingSequence)
             {
                 var nextCenter = centerNumber;
-                RefreshResources(brigadeNumber);
-                ReplaceCar(position[brigadeNumber], new Tuple<int, int>(centerNumber, 0), brigadeNumber);
-                ServeRegionCenter(nextCenter, brigadeNumber);
-                brigadeNumber = GetNextBrigadeNumber(brigadeNumber);
+                RefreshResources(currentBrigadeNumber);
+                ReplaceCar(position[currentBrigadeNumber], new Tuple<int, int>(centerNumber, 0), currentBrigadeNumber);
+                ServeRegionCenter(nextCenter);
+                currentBrigadeNumber = GetNextBrigadeNumber(currentBrigadeNumber);
             }
 
             Console.WriteLine("Конец");
@@ -77,10 +77,11 @@ namespace IDZ
 
         private void ShowBrigadeResult(int brigadeNumber)
         {
+            var carsCosts = pastMonthTime[brigadeNumber].Count > 0 ? pastMonthTime[brigadeNumber].Count * 5000 : 5000;
             Console.WriteLine($"Бригада{brigadeNumber + 1}");
             Console.WriteLine($"Маршрут: {GetPath(path[brigadeNumber])}");
             Console.WriteLine("Где {номер регионального центра}/{номер города (1=А...6=F)}");
-            Console.WriteLine($"Расходы на автомобиль: {pastMonthTime[brigadeNumber].Count * 5000}");
+            Console.WriteLine($"Расходы на автомобиль: {carsCosts}");
             Console.WriteLine($"Командировочные: {businessTripMoney[brigadeNumber]}");
             Console.WriteLine($"Затраты на отель: {hotelMoney[brigadeNumber]}");
             Console.WriteLine($"Зарплата инженера: {engineerMoney}");
@@ -98,52 +99,60 @@ namespace IDZ
             return result.ToString();
         }
 
-        private void ServeRegionCenter(int number, int brigadeNumber)
+        private void ServeRegionCenter(int number)
         {
             var cities = regionCenters[number - 1].Cities;
-            ServeCities(cities, brigadeNumber);
-            ServeCenter(position[brigadeNumber].Item1, brigadeNumber);
+            ServeCities(cities, number);
+            ServeCenter(position[currentBrigadeNumber].Item1);
         }
 
-        private void ServeCenter(int centerNumber, int brigadeNumber)
+        private void ServeCenter(int centerNumber)
         {
             var centerPosition = new Tuple<int, int>(centerNumber, 0);
-            ReplaceCar(position[brigadeNumber], centerPosition, brigadeNumber);
+            ReplaceCar(position[currentBrigadeNumber], centerPosition, currentBrigadeNumber);
             for (var i = 0; i < 3; i++)
             {
-                RefreshResources(brigadeNumber);
-                if (pastDayTime[brigadeNumber] + replacementTime > maxWorkTime)
+                RefreshResources(currentBrigadeNumber);
+                if (pastDayTime[currentBrigadeNumber] + replacementTime > maxWorkTime)
                 {
-                    ReplaceCar(position[brigadeNumber], new Tuple<int, int>(centerNumber, 1), brigadeNumber);
-                    DelayForSleep(brigadeNumber);
+                    ReplaceCar(position[currentBrigadeNumber], new Tuple<int, int>(centerNumber, 1),
+                        currentBrigadeNumber);
+                    DelayForSleep(currentBrigadeNumber);
                 }
 
-                ReplaceCar(position[brigadeNumber], centerPosition, brigadeNumber);
-                DelayForFixing(brigadeNumber);
+                ReplaceCar(position[currentBrigadeNumber], centerPosition, currentBrigadeNumber);
+                DelayForFixing(currentBrigadeNumber);
+                path[currentBrigadeNumber].Add(position[currentBrigadeNumber]);
+                if (i != 2)
+                {
+                    currentBrigadeNumber = GetNextBrigadeNumber(currentBrigadeNumber);
+                }
             }
         }
 
-        private void ServeCities(List<City> cities, int brigadeNumber)
+        private void ServeCities(List<City> cities, int centerNumber)
         {
             while (!cities.TrueForAll(x => x.Visited))
             {
                 foreach (var city in cities.Where(city => !city.Visited))
                 {
-                    RefreshResources(brigadeNumber);
-                    var cityPosition = new Tuple<int, int>(position[brigadeNumber].Item1, city.Position);
-                    var distanceToCity = regionCenters[position[brigadeNumber].Item1 - 1].Cities[city.Position - 1]
+                    RefreshResources(currentBrigadeNumber);
+                    var cityPosition = new Tuple<int, int>(centerNumber, city.Position);
+                    var distanceToCity = regionCenters[position[currentBrigadeNumber].Item1 - 1]
+                        .Cities[city.Position - 1]
                         .Distance;
                     var timeToCity = GetReplacementTime(distanceToCity, carSpeed);
-                    if (pastDayTime[brigadeNumber] + timeToCity + replacementTime > maxWorkTime)
+                    if (pastDayTime[currentBrigadeNumber] + timeToCity + replacementTime > maxWorkTime)
                     {
-                        DelayForSleep(brigadeNumber);
+                        DelayForSleep(currentBrigadeNumber);
                     }
 
-                    ReplaceCar(position[brigadeNumber], cityPosition, brigadeNumber);
-                    DelayForFixing(brigadeNumber);
-                    path[brigadeNumber].Add(position[brigadeNumber]);
+                    ReplaceCar(position[currentBrigadeNumber], cityPosition, currentBrigadeNumber);
+                    DelayForFixing(currentBrigadeNumber);
+                    path[currentBrigadeNumber].Add(position[currentBrigadeNumber]);
                     city.Visited = true;
-                    CheckWorkTime(brigadeNumber);
+                    CheckWorkTime(currentBrigadeNumber);
+                    currentBrigadeNumber = GetNextBrigadeNumber(currentBrigadeNumber);
                 }
             }
         }
