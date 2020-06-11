@@ -48,6 +48,7 @@ namespace IDZ
             foreach (var centerNumber in drivingSequence)
             {
                 var nextCenter = centerNumber;
+                RefreshResources();
                 ReplaceCar(position, new Tuple<int, int>(centerNumber, 0));
                 ServeRegionCenter(nextCenter);
             }
@@ -113,14 +114,16 @@ namespace IDZ
                     var cityPosition = new Tuple<int, int>(position.Item1, city.Position);
                     var distanceToCity = regionCenters[position.Item1 - 1].Cities[city.Position - 1].Distance;
                     var timeToCity = GetReplacementTime(distanceToCity, carSpeed);
-                    if (pastDayTime + timeToCity + replacementTime <= maxWorkTime)
+                    if (pastDayTime + timeToCity + replacementTime > maxWorkTime)
                     {
-                        ReplaceCar(position, cityPosition);
-                        DelayForFixing();
-                        path.Add(position);
-                        city.Visited = true;
-                        CheckWorkTime();
+                        DelayForSleep();
                     }
+
+                    ReplaceCar(position, cityPosition);
+                    DelayForFixing();
+                    path.Add(position);
+                    city.Visited = true;
+                    CheckWorkTime();
                 }
             }
         }
