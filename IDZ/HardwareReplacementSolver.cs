@@ -8,9 +8,9 @@ namespace IDZ
     public class HardwareReplacementSolver
     {
         private const int maxWorkTime = 720;
-        private double pastDayTime;
-        private readonly List<double> pastMonthTime;
-        private Tuple<int, int> position;
+        private double[] pastDayTime;
+        private List<double>[] pastMonthTime;
+        private Tuple<int, int>[] position;
         private readonly Tuple<int, int> storagePosition;
         private readonly Tuple<int, int> homePosition;
         private readonly int carSpeed;
@@ -20,52 +20,71 @@ namespace IDZ
         private int brigadeCount;
         private int carCapacity;
         private int[] drivingSequence;
-        private int resources;
+        private int[] resources;
         private List<List<int>> regionDistances;
-        private readonly List<Tuple<int, int>> path;
+        private List<Tuple<int, int>>[] path;
         private int engineerMoney;
         private int driverMoney;
-        private int businessTripMoney;
-        private int hotelMoney;
+        private int[] businessTripMoney;
+        private int[] hotelMoney;
 
         public HardwareReplacementSolver(int carSpeed = 50, int replacementTime = 70)
         {
             this.carSpeed = carSpeed;
             this.replacementTime = replacementTime;
-            position = new Tuple<int, int>(1, 0);
             storagePosition = new Tuple<int, int>(1, 0);
             homePosition = new Tuple<int, int>(1, 0);
-            pastMonthTime = new List<double>();
             regionCenters = new List<RegionCenter>();
             regionDistances = new List<List<int>>();
             drivingSequence = new int[4];
-            path = new List<Tuple<int, int>>();
         }
 
         public void Solve()
         {
+            var brigadeNumber = 0;
             foreach (var centerNumber in drivingSequence)
             {
                 var nextCenter = centerNumber;
-                RefreshResources();
-                ReplaceCar(position, new Tuple<int, int>(centerNumber, 0));
-                ServeRegionCenter(nextCenter);
+                RefreshResources(brigadeNumber);
+                ReplaceCar(position[brigadeNumber], new Tuple<int, int>(centerNumber, 0), brigadeNumber);
+                ServeRegionCenter(nextCenter, brigadeNumber);
+                brigadeNumber = GetNextBrigadeNumber(brigadeNumber);
             }
 
             Console.WriteLine("Конец");
             ShowResult();
         }
 
+        private int GetNextBrigadeNumber(int number)
+        {
+            return number + 1 < brigadeCount ? number + 1 : 0;
+        }
+
         private void ShowResult()
         {
-            Console.WriteLine($"Маршрут: {GetPath(path)}");
-            Console.WriteLine("Где {номер регионального центра}/{номер города (1=А...6=F)}");
             Console.WriteLine($"Количество бригад: {brigadeCount}");
-            Console.WriteLine($"Зарплата инженеров: {engineerMoney}");
-            Console.WriteLine($"Зарплата водителей: {driverMoney}");
-            Console.WriteLine($"Расходы на автомобили: {pastMonthTime.Count * 5000 * brigadeCount}");
-            Console.WriteLine($"Командировочные: {businessTripMoney}");
-            Console.WriteLine($"Затраты на отель {hotelMoney}");
+            Console.WriteLine($"Суммарные расходы на автомобили: {pastMonthTime.Sum(time => time.Count * 5000)}");
+            Console.WriteLine($"Суммарные командировочные {businessTripMoney.Sum()}");
+            Console.WriteLine($"Суммарные затраты на отель: {hotelMoney.Sum()}");
+            Console.WriteLine(
+                $"Суммарная зарплата сотрудников: {engineerMoney * brigadeCount + driverMoney * brigadeCount}");
+            for (var i = 0; i < brigadeCount; i++)
+            {
+                Console.WriteLine();
+                ShowBrigadeResult(i);
+            }
+        }
+
+        private void ShowBrigadeResult(int brigadeNumber)
+        {
+            Console.WriteLine($"Бригада{brigadeNumber + 1}");
+            Console.WriteLine($"Маршрут: {GetPath(path[brigadeNumber])}");
+            Console.WriteLine("Где {номер регионального центра}/{номер города (1=А...6=F)}");
+            Console.WriteLine($"Расходы на автомобиль: {pastMonthTime[brigadeNumber].Count * 5000}");
+            Console.WriteLine($"Командировочные: {businessTripMoney[brigadeNumber]}");
+            Console.WriteLine($"Затраты на отель: {hotelMoney[brigadeNumber]}");
+            Console.WriteLine($"Зарплата инженера: {engineerMoney}");
+            Console.WriteLine($"Зарплата водителя: {driverMoney}");
         }
 
         private string GetPath(List<Tuple<int, int>> sequence)
@@ -79,66 +98,67 @@ namespace IDZ
             return result.ToString();
         }
 
-        private void ServeRegionCenter(int number)
+        private void ServeRegionCenter(int number, int brigadeNumber)
         {
             var cities = regionCenters[number - 1].Cities;
-            ServeCities(cities);
-            ServeCenter(position.Item1);
+            ServeCities(cities, brigadeNumber);
+            ServeCenter(position[brigadeNumber].Item1, brigadeNumber);
         }
 
-        private void ServeCenter(int centerNumber)
+        private void ServeCenter(int centerNumber, int brigadeNumber)
         {
             var centerPosition = new Tuple<int, int>(centerNumber, 0);
-            ReplaceCar(position, centerPosition);
+            ReplaceCar(position[brigadeNumber], centerPosition, brigadeNumber);
             for (var i = 0; i < 3; i++)
             {
-                RefreshResources();
-                if (pastDayTime + replacementTime > maxWorkTime)
+                RefreshResources(brigadeNumber);
+                if (pastDayTime[brigadeNumber] + replacementTime > maxWorkTime)
                 {
-                    ReplaceCar(position, new Tuple<int, int>(centerNumber, 1));
-                    DelayForSleep();
+                    ReplaceCar(position[brigadeNumber], new Tuple<int, int>(centerNumber, 1), brigadeNumber);
+                    DelayForSleep(brigadeNumber);
                 }
 
-                ReplaceCar(position, centerPosition);
-                DelayForFixing();
+                ReplaceCar(position[brigadeNumber], centerPosition, brigadeNumber);
+                DelayForFixing(brigadeNumber);
             }
         }
 
-        private void ServeCities(List<City> cities)
+        private void ServeCities(List<City> cities, int brigadeNumber)
         {
             while (!cities.TrueForAll(x => x.Visited))
             {
                 foreach (var city in cities.Where(city => !city.Visited))
                 {
-                    RefreshResources();
-                    var cityPosition = new Tuple<int, int>(position.Item1, city.Position);
-                    var distanceToCity = regionCenters[position.Item1 - 1].Cities[city.Position - 1].Distance;
+                    RefreshResources(brigadeNumber);
+                    var cityPosition = new Tuple<int, int>(position[brigadeNumber].Item1, city.Position);
+                    var distanceToCity = regionCenters[position[brigadeNumber].Item1 - 1].Cities[city.Position - 1]
+                        .Distance;
                     var timeToCity = GetReplacementTime(distanceToCity, carSpeed);
-                    if (pastDayTime + timeToCity + replacementTime > maxWorkTime)
+                    if (pastDayTime[brigadeNumber] + timeToCity + replacementTime > maxWorkTime)
                     {
-                        DelayForSleep();
+                        DelayForSleep(brigadeNumber);
                     }
 
-                    ReplaceCar(position, cityPosition);
-                    DelayForFixing();
-                    path.Add(position);
+                    ReplaceCar(position[brigadeNumber], cityPosition, brigadeNumber);
+                    DelayForFixing(brigadeNumber);
+                    path[brigadeNumber].Add(position[brigadeNumber]);
                     city.Visited = true;
-                    CheckWorkTime();
+                    CheckWorkTime(brigadeNumber);
                 }
             }
         }
 
-        private void CheckWorkTime()
+        private void CheckWorkTime(int brigadeNumber)
         {
-            var workTime = pastDayTime;
-            var timeToHome = GetReplacingTime(position, homePosition);
+            var workTime = pastDayTime[brigadeNumber];
+            var timeToHome = GetReplacingTime(position[brigadeNumber], homePosition, brigadeNumber);
             if (workTime + timeToHome > maxWorkTime)
             {
-                DelayForSleep();
+                DelayForSleep(brigadeNumber);
             }
         }
 
-        private double GetReplacingTime(Tuple<int, int> from, Tuple<int, int> to)
+        private double GetReplacingTime(Tuple<int, int> from, Tuple<int, int> to, int brigadeNumber)
         {
             var time = 0.0;
             var currentPosition = new Tuple<int, int>(from.Item1, from.Item2);
@@ -162,7 +182,7 @@ namespace IDZ
 
             if (currentPosition.Item2 != homePosition.Item2)
             {
-                var distance = regionCenters[position.Item1 - 1].Cities[homePosition.Item2 - 1].Distance;
+                var distance = regionCenters[position[brigadeNumber].Item1 - 1].Cities[homePosition.Item2 - 1].Distance;
                 var timeToCity = GetReplacementTime(distance, carSpeed);
                 time += timeToCity;
                 currentPosition = homePosition;
@@ -171,54 +191,56 @@ namespace IDZ
             return time;
         }
 
-        private void DelayForFixing()
+        private void DelayForFixing(int brigadeNumber)
         {
-            Console.WriteLine($"Починка {position.Item1}/{position.Item2}");
-            pastDayTime += replacementTime;
-            resources--;
+            Console.WriteLine(
+                $"Починка бригада{brigadeNumber + 1} {position[brigadeNumber].Item1}/{position[brigadeNumber].Item2}");
+            pastDayTime[brigadeNumber] += replacementTime;
+            resources[brigadeNumber]--;
         }
 
-        private void DelayForSleep()
+        private void DelayForSleep(int brigadeNumber)
         {
-            Console.WriteLine($"Гостиница {position.Item1}/{position.Item2}");
-            pastMonthTime.Add(replacementTime);
-            pastDayTime = 0;
-            businessTripMoney += 1000 * 2;
-            hotelMoney += 800 * 2;
+            Console.WriteLine(
+                $"Гостиница бригада{brigadeNumber + 1} {position[brigadeNumber].Item1}/{position[brigadeNumber].Item2}");
+            pastMonthTime[brigadeNumber].Add(replacementTime);
+            pastDayTime[brigadeNumber] = 0;
+            businessTripMoney[brigadeNumber] += 1000 * 2;
+            hotelMoney[brigadeNumber] += 800 * 2;
         }
 
-        private void RefreshResources()
+        private void RefreshResources(int brigadeNumber)
         {
-            if (resources < 1)
+            if (resources[brigadeNumber] < 1)
             {
-                ReceiveResources();
+                ReceiveResources(brigadeNumber);
             }
         }
 
-        private void ReceiveResources()
+        private void ReceiveResources(int brigadeNumber)
         {
             if (position.Equals(storagePosition))
             {
-                resources = carCapacity;
+                resources[brigadeNumber] = carCapacity;
             }
             else
             {
-                var timeToStorage = GetReplacingTime(position, storagePosition);
-                var oldPosition = position;
-                if (pastDayTime + 2 * timeToStorage > maxWorkTime)
+                var timeToStorage = GetReplacingTime(position[brigadeNumber], storagePosition, brigadeNumber);
+                var oldPosition = position[brigadeNumber];
+                if (pastDayTime[brigadeNumber] + 2 * timeToStorage > maxWorkTime)
                 {
-                    DelayForSleep();
+                    DelayForSleep(brigadeNumber);
                 }
 
-                ReplaceCar(position, storagePosition);
-                resources = carCapacity;
-                ReplaceCar(position, oldPosition);
+                ReplaceCar(position[brigadeNumber], storagePosition, brigadeNumber);
+                resources[brigadeNumber] = carCapacity;
+                ReplaceCar(position[brigadeNumber], oldPosition, brigadeNumber);
             }
 
-            Console.WriteLine($"Ресурсы обновлены: {resources}");
+            Console.WriteLine($"Ресурсы обновлены бригада{brigadeNumber + 1}: {resources[brigadeNumber]}");
         }
 
-        private void ReplaceCar(Tuple<int, int> from, Tuple<int, int> to)
+        private void ReplaceCar(Tuple<int, int> from, Tuple<int, int> to, int brigadeNumber)
         {
             if (from.Equals(to))
             {
@@ -232,26 +254,26 @@ namespace IDZ
                 var distance = regionCenters[from.Item1 - 1].Cities[from.Item2 - 1].Distance;
                 var timeToRegionCenter = GetReplacementTime(distance, carSpeed);
                 time += timeToRegionCenter;
-                position = new Tuple<int, int>(from.Item1, 0);
+                position[brigadeNumber] = new Tuple<int, int>(from.Item1, 0);
             }
 
-            if (position.Item1 != to.Item1)
+            if (position[brigadeNumber].Item1 != to.Item1)
             {
                 var distance = regionDistances[from.Item1 - 1][to.Item1 - 1];
                 var timeToCenter = GetReplacementTime(distance, carSpeed);
                 time += timeToCenter;
-                position = new Tuple<int, int>(to.Item1, 0);
+                position[brigadeNumber] = new Tuple<int, int>(to.Item1, 0);
             }
 
-            if (position.Item2 != to.Item2)
+            if (position[brigadeNumber].Item2 != to.Item2)
             {
-                var distance = regionCenters[position.Item1 - 1].Cities[to.Item2 - 1].Distance;
+                var distance = regionCenters[position[brigadeNumber].Item1 - 1].Cities[to.Item2 - 1].Distance;
                 var timeToCity = GetReplacementTime(distance, carSpeed);
                 time += timeToCity;
-                position = to;
+                position[brigadeNumber] = to;
             }
 
-            pastDayTime += time;
+            pastDayTime[brigadeNumber] += time;
         }
 
         private double GetReplacementTime(int distance, int speed)
@@ -296,20 +318,20 @@ namespace IDZ
 
             if (weeksCount == 1)
             {
-                engineerMoney = 25000 * brigadeCount;
-                driverMoney = 22500 * brigadeCount;
+                engineerMoney = 25000;
+                driverMoney = 22500;
             }
 
             if (weeksCount == 2)
             {
-                engineerMoney = 50000 * brigadeCount;
-                driverMoney = 45000 * brigadeCount;
+                engineerMoney = 50000;
+                driverMoney = 45000;
             }
 
             if (weeksCount == 3)
             {
-                engineerMoney = 75000 * brigadeCount;
-                driverMoney = 67500 * brigadeCount;
+                engineerMoney = 75000;
+                driverMoney = 67500;
             }
 
             return weeksCount * 2;
@@ -374,7 +396,7 @@ namespace IDZ
 
             Console.WriteLine();
         }
-        
+
         private int GetBrigadeCount()
         {
             Console.WriteLine("Введите необходимое число рабочих бригад (минимальное значение: 1)");
@@ -386,7 +408,30 @@ namespace IDZ
                 GetBrigadeCount();
             }
 
+            InitializeBrigades(brigadeCount);
+
             return brigadeCount;
+        }
+
+        private void InitializeBrigades(int brigadeCount)
+        {
+            pastDayTime = new double[brigadeCount];
+            pastMonthTime = new List<double>[brigadeCount];
+            position = new Tuple<int, int>[brigadeCount];
+            resources = new int[brigadeCount];
+            path = new List<Tuple<int, int>>[brigadeCount];
+            businessTripMoney = new int[brigadeCount];
+            hotelMoney = new int[brigadeCount];
+            for (var i = 0; i < brigadeCount; i++)
+            {
+                pastDayTime[i] = 0;
+                pastMonthTime[i] = new List<double>();
+                position[i] = homePosition;
+                resources[i] = 0;
+                path[i] = new List<Tuple<int, int>>();
+                businessTripMoney[i] = 0;
+                hotelMoney[i] = 0;
+            }
         }
     }
 }
